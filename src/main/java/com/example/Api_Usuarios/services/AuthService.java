@@ -1,5 +1,6 @@
 package com.example.Api_Usuarios.services;
 
+import com.example.Api_Usuarios.DTO.AuthResponse;
 import com.example.Api_Usuarios.models.Role;
 import com.example.Api_Usuarios.models.User;
 import com.example.Api_Usuarios.repositories.RoleRepository;
@@ -29,7 +30,12 @@ public class AuthService {
     private final RoleRepository roleRepository;
 
     // MÉTODO DE REGISTRO
-    public AuthenticationResponse register(RegisterRequest request) {
+    public void register(RegisterRequest request) {
+
+        if(userRepository.existsByEmail(request.getEmail())){
+            throw new RuntimeException("Error: el correo electronico ya se encuentra registrado");
+        }
+
         Role userRole = roleRepository.findByName("ROLE_USER") // Es estándar usar el prefijo ROLE_
                 .orElseGet(() -> roleRepository.save(Role.builder().name("ROLE_USER").build()));
 
@@ -45,15 +51,10 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
-
-        var jwtToken = jwtService.generateToken(user);
-        return AuthenticationResponse.builder()
-                .token(jwtToken)
-                .build();
     }
 
     // MÉTODO DE LOGIN (AUTENTICACIÓN)
-    public AuthenticationResponse authenticate(AuthenticationRequest request) {
+    public AuthResponse authenticate(AuthenticationRequest request) {
         // El Manager se encarga de validar email y password automáticamente
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -67,8 +68,12 @@ public class AuthService {
                 .orElseThrow();
 
         var jwtToken = jwtService.generateToken(user);
-        return AuthenticationResponse.builder()
+        return AuthResponse.builder()
                 .token(jwtToken)
+                .type("Bearer")
+                .email(user.getEmail())
+                .role(user.getAuthorities().toString()) // O el rol que manejes
+                .expiresIn(3600000) // Ejemplo: 1 hora
                 .build();
     }
 }
